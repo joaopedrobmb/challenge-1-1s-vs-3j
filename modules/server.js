@@ -47,8 +47,62 @@ const server = http.createServer((req, res) => {
     const sortedCountPerCountry = Object.entries(countPerCountry);
     sortedCountPerCountry.sort((a, b) => b[1] - a[1]);
 
+    const slicedCountPerCountry = sortedCountPerCountry.slice(0, 4);
+
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(countPerCountry));
+    res.end(JSON.stringify(slicedCountPerCountry.flat()));
+  }
+  // GET /team-insights
+  else if (req.method === "GET" && req.url === "/team-insights") {
+    const filtredByTeamName = users.reduce((acc, user) => {
+      const teamName = user.team.name;
+
+      if (!acc[teamName]) {
+        acc[teamName] = {
+          members: 0,
+          leaders: 0,
+          completedProjects: 0,
+          activeMembers: 0,
+        };
+      }
+
+      const team = acc[teamName];
+
+      team.members++;
+
+      if (user.team.leader == true) {
+        team.leaders++;
+      }
+
+      if (user.active == true) {
+        team.activeMembers++;
+      }
+
+      user.team.projects.forEach((project) => {
+        if (project.completed == true) {
+          team.completedProjects++;
+        }
+      });
+
+      return acc;
+    }, {});
+
+    console.log(filtredByTeamName);
+
+    const teamsInsight = Object.entries(filtredByTeamName).map(
+      ([teamName, data]) => ({
+        team: teamName,
+        totalMembers: data.members,
+        leaders: data.leaders,
+        completedProjects: data.completedProjects,
+        activeMembersPercentage: Number(
+          ((data.activeMembers / data.members) * 100).toFixed(2),
+        ),
+      }),
+    );
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(teamsInsight));
   }
   //
   else {
@@ -60,17 +114,6 @@ const server = http.createServer((req, res) => {
 server.listen(3000, "localhost", () => {
   console.log("Server running");
 });
-
-// POST /users OK
-// Recebe e armazena os usuários na memória. Pode simular um banco de dados em memória.
-
-// GET /superusers OK
-// Filtro: score >= 900 e active = true
-// Retorna os dados e o tempo de processamento da requisição.
-
-// GET /top-countries
-// Agrupa os superusuários por país.
-// Retorna os 5 países com maior número de superusuários.
 
 // GET /team-insights
 // Agrupa por team.name.

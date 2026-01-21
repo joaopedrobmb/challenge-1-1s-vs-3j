@@ -104,6 +104,25 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(teamsInsight));
   }
+  //GET /active-users-per-day
+  else if (req.method === "GET" && req.url === "/active-users-per-day") {
+    const logsByDate = users.reduce((acc, user) => {
+      user.logs.forEach((log) => {
+        if (log.action === "login") {
+          acc[log.date] = (acc[log.date] || 0) + 1;
+        }
+      });
+      return acc;
+    }, {});
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(logsByDate));
+  }
+  //GET /evaluation
+  else if (req.method === "GET" && req.url === "/evaluation") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(responseSuperUsers.status);
+  }
   //
   else {
     res.writeHead(404, { "Content-Type": "text/plain" });

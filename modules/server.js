@@ -3,7 +3,7 @@ const http = require("http");
 const users = [];
 
 const server = http.createServer((req, res) => {
-  const start = Date.now();
+  const timestampStart = Date.now();
   // POST /users
   if (req.method === "POST" && req.url === "/users") {
     let body = "";
@@ -16,7 +16,13 @@ const server = http.createServer((req, res) => {
       users.push(...newUsers);
 
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ message: "Usuários adicionados!" }));
+      res.end(
+        JSON.stringify({
+          timestamp: Date.now(),
+          time_response: Date.now() - timestampStart,
+          message: "Usuários adicionados!",
+        }),
+      );
     });
   }
   // GET /superusers
@@ -28,7 +34,8 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(
       JSON.stringify({
-        time_spent: Date.now() - start,
+        timestamp: Date.now(),
+        time_response: Date.now() - timestampStart,
         filtered_users: superUsers,
       }),
     );
@@ -50,7 +57,13 @@ const server = http.createServer((req, res) => {
     const slicedCountPerCountry = sortedCountPerCountry.slice(0, 4);
 
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(slicedCountPerCountry.flat()));
+    res.end(
+      JSON.stringify({
+        timestamp: Date.now(),
+        time_response: Date.now() - timestampStart,
+        top_countries: slicedCountPerCountry.flat(),
+      }),
+    );
   }
   // GET /team-insights
   else if (req.method === "GET" && req.url === "/team-insights") {
@@ -87,8 +100,6 @@ const server = http.createServer((req, res) => {
       return acc;
     }, {});
 
-    console.log(filtredByTeamName);
-
     const teamsInsight = Object.entries(filtredByTeamName).map(
       ([teamName, data]) => ({
         team: teamName,
@@ -102,7 +113,13 @@ const server = http.createServer((req, res) => {
     );
 
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(teamsInsight));
+    res.end(
+      JSON.stringify({
+        timestamp: Date.now(),
+        time_response: Date.now() - timestampStart,
+        teams_insight: teamsInsight,
+      }),
+    );
   }
   //GET /active-users-per-day
   else if (req.method === "GET" && req.url === "/active-users-per-day") {
@@ -116,12 +133,93 @@ const server = http.createServer((req, res) => {
     }, {});
 
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(logsByDate));
+    res.end(
+      JSON.stringify({
+        timestamp: Date.now(),
+        time_response: Date.now() - timestampStart,
+        logs_by_date: logsByDate,
+      }),
+    );
   }
   //GET /evaluation
   else if (req.method === "GET" && req.url === "/evaluation") {
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(responseSuperUsers.status);
+    async function callEndpoints() {
+      const callResponseSU = await fetch("http://localhost:3000/superusers", {
+        method: "GET",
+      });
+
+      const dataSU = await callResponseSU.json();
+
+      const callResponseTopCountries = await fetch(
+        "http://localhost:3000/top-countries",
+        {
+          method: "GET",
+        },
+      );
+
+      const dataTC = await callResponseTopCountries.json();
+
+      const callResponseTeamInsights = await fetch(
+        "http://localhost:3000/team-insights",
+        {
+          method: "GET",
+        },
+      );
+
+      const dataTI = await callResponseTeamInsights.json();
+
+      const callResponseActiveUsersPerDay = await fetch(
+        "http://localhost:3000/active-users-per-day",
+        {
+          method: "GET",
+        },
+      );
+
+      const dataAU = await callResponseActiveUsersPerDay.json();
+
+      function isJson(str) {
+        try {
+          JSON.parse(str);
+        } catch (error) {
+          return false;
+        }
+        return true;
+      }
+
+      console.log(isJson(callResponseTopCountries));
+
+      const endpointStatus = {
+        superusers: {
+          status: callResponseSU.status,
+          time_response: dataSU.time_response,
+          is_json: isJson(callResponseSU),
+        },
+        top_countries: {
+          status: callResponseTopCountries.status,
+          time_response: dataTC.time_response,
+          is_json: isJson(callResponseTopCountries),
+        },
+        team_insights: {
+          status: callResponseTeamInsights.status,
+          time_response: dataTI.time_response,
+          is_json: isJson(callResponseTeamInsights),
+        },
+        active_users_per_day: {
+          status: callResponseActiveUsersPerDay.status,
+          time_response: dataAU.time_response,
+          is_json: isJson(callResponseActiveUsersPerDay),
+        },
+      };
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(endpointStatus));
+    }
+
+    try {
+      callEndpoints();
+    } catch (error) {
+      console.log(error);
+    }
   }
   //
   else {
@@ -133,11 +231,3 @@ const server = http.createServer((req, res) => {
 server.listen(3000, "localhost", () => {
   console.log("Server running");
 });
-
-// GET /team-insights
-// Agrupa por team.name.
-// Retorna: total de membros, líderes, projetos concluídos e % de membros ativos.
-
-// GET /active-users-per-day
-// Conta quantos logins aconteceram por data.
-// Query param opcional: ?min=3000 para filtrar dias com pelo menos 3.000 logins.
